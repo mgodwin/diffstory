@@ -1,0 +1,12 @@
+{
+  "name": "diffstory",
+  "version": "1.0.0",
+  "description": "Diffstory is a Claude Code skill that transforms code diffs into interactive narrative reviews. It takes a PR, MR, or git ref and generates a self-contained HTML file where changes are organized into logical stories with syntax-highlighted diffs, inline annotations, and a progress tracker.",
+  "private": true,
+  "scripts": {
+    "test": "tests/build-test.sh --render"
+  },
+  "dependencies": {
+    "playwright": "^1.58.2"
+  }
+}

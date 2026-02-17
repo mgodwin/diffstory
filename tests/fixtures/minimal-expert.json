@@ -1,0 +1,47 @@
+{
+  "source": "main..feature/minimal",
+  "title": "Add helper utility function",
+  "knowledgeLevel": "expert",
+  "criticality": {
+    "level": "low",
+    "explanation": "Small isolated change with no public API impact.",
+    "risks": ["Incorrect clamping could silently corrupt values downstream"]
+  },
+  "approachEvaluation": {
+    "verdict": "optimal",
+    "summary": "A focused utility function with clear semantics. No concerns from any perspective.",
+    "perspectives": []
+  },
+  "summary": "Adds a `clamp` utility function that constrains a number within a given range.",
+  "narratives": [
+    {
+      "id": "narrative-1",
+      "title": "Clamp utility",
+      "summary": "A single utility function added to the math helpers module.",
+      "steps": [
+        {
+          "id": "step-1",
+          "title": "Add clamp function",
+          "blurb": "Introduces `clamp(value, min, max)` which returns the value bounded by min and max.",
+          "hunks": [
+            {
+              "id": "hunk-1",
+              "file": "src/utils/math.ts",
+              "startLine": 12,
+              "endLine": 18,
+              "diff": "@@ -11,0 +12,7 @@\n+export function clamp(value: number, min: number, max: number): number {\n+  if (min > max) {\n+    throw new RangeError('min must be <= max');\n+  }\n+  return Math.min(Math.max(value, min), max);\n+}\n+",
+              "annotations": [
+                {
+                  "id": "ann-1",
+                  "type": "edge_case",
+                  "lineMatch": "min > max",
+                  "content": "Consider whether NaN inputs should be handled explicitly."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

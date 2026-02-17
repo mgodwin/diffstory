@@ -1,0 +1,248 @@
+{
+  "source": "https://github.com/acme/ui-kit/pull/87",
+  "title": "Button component redesign with variants and accessibility",
+  "knowledgeLevel": "intermediate",
+  "criticality": {
+    "level": "medium",
+    "explanation": "Public component API changed, affecting all consumers of Button, with new accessibility requirements that must be met.",
+    "risks": ["Breaking change for existing Button consumers using the old type prop", "Polymorphic as prop could lead to invalid DOM attribute spread", "Connected ButtonGroup styling breaks if children render non-button elements"]
+  },
+  "approachEvaluation": {
+    "verdict": "optimal",
+    "summary": "Component API redesign using polymorphic patterns is the right approach for this design system. The variant/size prop structure aligns with industry standards.",
+    "perspectives": [
+      {
+        "role": "consumer",
+        "concern": "The `type` prop is renamed to `variant` with no migration path — every existing `<Button type=\"...\">` breaks silently (the prop is now passed through to the HTML `type` attribute, changing behavior rather than erroring).",
+        "severity": "high"
+      },
+      {
+        "role": "spec",
+        "concern": "PR description says 'adds accessibility' but the implementation only adds `aria-disabled` — keyboard focus management, focus ring styling, and screen reader announcements for ButtonGroup are not addressed.",
+        "severity": "medium"
+      }
+    ]
+  },
+  "sideEffects": [
+    {
+      "area": "Button consumers",
+      "description": "All existing usages of <Button type=\"submit\"> must be updated to <Button variant=\"primary\" type=\"submit\">. The old type prop is repurposed for the HTML button type attribute.",
+      "severity": "high"
+    },
+    {
+      "area": "CSS custom properties",
+      "description": "Components relying on --color-brand, --color-border, --color-hover, and --color-focus CSS variables must define them. If these aren't set at the app level, buttons will render with missing colors.",
+      "severity": "medium"
+    }
+  ],
+  "summary": "Redesigns the `Button` component to support **multiple variants** (primary, secondary, ghost), adds proper **ARIA attributes**, and introduces a `ButtonGroup` compound component.\n\nThis is a breaking change for consumers using the old `type` prop — it's been renamed to `variant` for clarity.",
+  "narratives": [
+    {
+      "id": "narrative-1",
+      "title": "Button variants",
+      "summary": "Replaces the old single-style button with a variant system supporting primary, secondary, and ghost styles.",
+      "steps": [
+        {
+          "id": "step-1",
+          "title": "Define variant types",
+          "blurb": "Introduces the `ButtonVariant` type and updates the props interface to use `variant` instead of `type`.",
+          "hunks": [
+            {
+              "id": "hunk-1",
+              "file": "src/components/Button/types.ts",
+              "startLine": 1,
+              "endLine": 18,
+              "diff": "@@ -1,6 +1,18 @@\n-export interface ButtonProps {\n-  type?: 'submit' | 'button';\n-  children: React.ReactNode;\n-  onClick?: () => void;\n-  disabled?: boolean;\n-}\n+export type ButtonVariant = 'primary' | 'secondary' | 'ghost';\n+export type ButtonSize = 'sm' | 'md' | 'lg';\n+\n+export interface ButtonProps {\n+  variant?: ButtonVariant;\n+  size?: ButtonSize;\n+  children: React.ReactNode;\n+  onClick?: () => void;\n+  disabled?: boolean;\n+  loading?: boolean;\n+  'aria-label'?: string;\n+  'aria-describedby'?: string;\n+  type?: 'submit' | 'button' | 'reset';\n+  fullWidth?: boolean;\n+  className?: string;\n+  as?: React.ElementType;\n+}",
+              "annotations": [
+                {
+                  "id": "ann-1",
+                  "type": "risk",
+                  "lineMatch": "ButtonVariant = 'primary'",
+                  "content": "Renaming `type` to `variant` is a breaking change. Ensure a migration guide or codemod is provided."
+                },
+                {
+                  "id": "ann-2",
+                  "type": "alternative",
+                  "lineMatch": "as?: React.ElementType",
+                  "content": "The `as` prop enables polymorphism but adds complexity. Consider whether this is needed for v1."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "step-2",
+          "title": "Implement variant styles",
+          "blurb": "Adds CSS module styles for each variant with proper hover, focus, and disabled states.",
+          "hunks": [
+            {
+              "id": "hunk-2",
+              "file": "src/components/Button/Button.module.css",
+              "startLine": 1,
+              "endLine": 42,
+              "diff": "@@ -1,8 +1,42 @@\n-.button {\n-  padding: 8px 16px;\n-  border: none;\n-  cursor: pointer;\n-}\n+.button {\n+  display: inline-flex;\n+  align-items: center;\n+  justify-content: center;\n+  border: none;\n+  cursor: pointer;\n+  font-weight: 500;\n+  transition: all 0.15s ease;\n+  border-radius: 8px;\n+}\n+\n+.sm { padding: 6px 12px; font-size: 13px; }\n+.md { padding: 8px 16px; font-size: 14px; }\n+.lg { padding: 12px 24px; font-size: 16px; }\n+\n+.primary {\n+  background: var(--color-brand);\n+  color: white;\n+}\n+.primary:hover { filter: brightness(1.1); }\n+\n+.secondary {\n+  background: transparent;\n+  border: 1px solid var(--color-border);\n+  color: var(--color-text);\n+}\n+.secondary:hover { background: var(--color-hover); }\n+\n+.ghost {\n+  background: transparent;\n+  color: var(--color-text);\n+}\n+.ghost:hover { background: var(--color-hover); }\n+\n+.disabled {\n+  opacity: 0.5;\n+  cursor: not-allowed;\n+  pointer-events: none;\n+}\n+\n+.fullWidth { width: 100%; }\n+\n+.loading { position: relative; color: transparent; }",
+              "annotations": [
+                {
+                  "id": "ann-3",
+                  "type": "edge_case",
+                  "lineMatch": "pointer-events: none",
+                  "content": "`pointer-events: none` on disabled buttons prevents tooltip hover. Consider using `aria-disabled` with click prevention instead."
+                },
+                {
+                  "id": "ann-3b",
+                  "type": "provocation",
+                  "lineMatch": "filter: brightness(1.1)",
+                  "content": "Using `filter: brightness()` for hover is a nice trick that works with any brand color without needing to define a separate hover color."
+                }
+              ]
+            },
+            {
+              "id": "hunk-3",
+              "file": "src/components/Button/Button.tsx",
+              "startLine": 1,
+              "endLine": 38,
+              "diff": "@@ -1,12 +1,38 @@\n-import React from 'react';\n-import { ButtonProps } from './types';\n-import styles from './Button.module.css';\n-\n-export function Button({ children, onClick, disabled }: ButtonProps) {\n-  return (\n-    <button className={styles.button} onClick={onClick} disabled={disabled}>\n-      {children}\n-    </button>\n-  );\n-}\n+import React, { forwardRef } from 'react';\n+import { ButtonProps } from './types';\n+import styles from './Button.module.css';\n+import clsx from 'clsx';\n+\n+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(\n+  function Button(\n+    {\n+      variant = 'primary',\n+      size = 'md',\n+      children,\n+      onClick,\n+      disabled,\n+      loading,\n+      fullWidth,\n+      className,\n+      as: Component = 'button',\n+      type = 'button',\n+      ...rest\n+    },\n+    ref\n+  ) {\n+    const cls = clsx(\n+      styles.button,\n+      styles[variant],\n+      styles[size],\n+      disabled && styles.disabled,\n+      loading && styles.loading,\n+      fullWidth && styles.fullWidth,\n+      className\n+    );\n+\n+    return (\n+      <Component\n+        ref={ref}\n+        className={cls}\n+        onClick={disabled || loading ? undefined : onClick}\n+        disabled={disabled}\n+        type={Component === 'button' ? type : undefined}\n+        aria-busy={loading || undefined}\n+        {...rest}\n+      >\n+        {children}\n+      </Component>\n+    );\n+  }\n+);",
+              "annotations": [
+                {
+                  "id": "ann-4",
+                  "type": "question",
+                  "lineMatch": "styles[variant]",
+                  "content": "Using `styles[variant]` with dynamic keys — does the CSS module type generation handle this correctly?"
+                },
+                {
+                  "id": "ann-5",
+                  "type": "risk",
+                  "lineMatch": "as: Component = 'button'",
+                  "content": "The `as` prop with `...rest` spread could pass unexpected DOM attributes if misused with non-button elements."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "narrative-2",
+      "title": "Accessibility",
+      "summary": "Adds ARIA attributes and focus management to meet WCAG 2.1 AA requirements for interactive buttons.",
+      "steps": [
+        {
+          "id": "step-3",
+          "title": "Focus ring styles",
+          "blurb": "Adds visible focus indicators using `:focus-visible` so keyboard users can see which element is focused, while mouse users don't see distracting outlines.",
+          "hunks": [
+            {
+              "id": "hunk-4",
+              "file": "src/components/Button/Button.module.css",
+              "startLine": 44,
+              "endLine": 52,
+              "diff": "@@ -42,0 +44,9 @@\n+.button:focus-visible {\n+  outline: 2px solid var(--color-focus);\n+  outline-offset: 2px;\n+}\n+\n+.button:focus:not(:focus-visible) {\n+  outline: none;\n+}",
+              "annotations": [
+                {
+                  "id": "ann-6",
+                  "type": "provocation",
+                  "lineMatch": ":focus:not(:focus-visible)",
+                  "content": "The `:focus:not(:focus-visible)` rule provides graceful fallback for browsers that don't support `:focus-visible`."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "step-4",
+          "title": "Loading state announcement",
+          "blurb": "When `loading` is true, the button announces its busy state to screen readers via `aria-busy` and shows a spinner overlay.",
+          "hunks": [
+            {
+              "id": "hunk-5",
+              "file": "src/components/Button/Spinner.tsx",
+              "startLine": 1,
+              "endLine": 16,
+              "diff": "@@ -0,0 +1,16 @@\n+import React from 'react';\n+import styles from './Spinner.module.css';\n+\n+export function Spinner({ size = 16 }: { size?: number }) {\n+  return (\n+    <span\n+      className={styles.spinner}\n+      role=\"status\"\n+      aria-label=\"Loading\"\n+      style={{ width: size, height: size }}\n+    >\n+      <span className=\"sr-only\">Loading...</span>\n+    </span>\n+  );\n+}",
+              "annotations": [
+                {
+                  "id": "ann-7",
+                  "type": "edge_case",
+                  "lineMatch": "aria-label=\"Loading\"",
+                  "content": "Both `aria-label` and the `sr-only` span convey 'Loading' — this creates duplicate announcements in some screen readers. Pick one approach."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "narrative-3",
+      "title": "ButtonGroup",
+      "summary": "A new compound component that groups buttons with consistent spacing and optional connected appearance.",
+      "steps": [
+        {
+          "id": "step-5",
+          "title": "ButtonGroup component",
+          "blurb": "Wraps multiple `Button` components with a flex container, provides context for connected styling, and handles keyboard navigation between grouped buttons.",
+          "hunks": [
+            {
+              "id": "hunk-6",
+              "file": "src/components/Button/ButtonGroup.tsx",
+              "startLine": 1,
+              "endLine": 32,
+              "diff": "@@ -0,0 +1,32 @@\n+import React, { createContext, useContext } from 'react';\n+import styles from './ButtonGroup.module.css';\n+\n+interface ButtonGroupProps {\n+  children: React.ReactNode;\n+  connected?: boolean;\n+  orientation?: 'horizontal' | 'vertical';\n+}\n+\n+const GroupContext = createContext({ connected: false });\n+export const useButtonGroup = () => useContext(GroupContext);\n+\n+export function ButtonGroup({\n+  children,\n+  connected = false,\n+  orientation = 'horizontal'\n+}: ButtonGroupProps) {\n+  return (\n+    <GroupContext.Provider value={{ connected }}>\n+      <div\n+        className={styles.group}\n+        role=\"group\"\n+        data-orientation={orientation}\n+        data-connected={connected || undefined}\n+      >\n+        {children}\n+      </div>\n+    </GroupContext.Provider>\n+  );\n+}",
+              "annotations": [
+                {
+                  "id": "ann-8",
+                  "type": "alternative",
+                  "lineMatch": "role=\"group\"",
+                  "content": "Consider adding `aria-label` prop to the group `role=\"group\"` so screen readers can identify what the button group controls."
+                },
+                {
+                  "id": "ann-9",
+                  "type": "provocation",
+                  "lineMatch": "createContext({ connected: false })",
+                  "content": "Using React Context for the connected state lets child Button components adjust their border-radius without prop drilling."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "step-6",
+          "title": "ButtonGroup styles",
+          "blurb": "CSS for the group container with gap, connected mode border-radius overrides, and vertical orientation support.",
+          "hunks": [
+            {
+              "id": "hunk-7",
+              "file": "src/components/Button/ButtonGroup.module.css",
+              "startLine": 1,
+              "endLine": 22,
+              "diff": "@@ -0,0 +1,22 @@\n+.group {\n+  display: inline-flex;\n+  gap: 8px;\n+}\n+\n+.group[data-orientation='vertical'] {\n+  flex-direction: column;\n+}\n+\n+.group[data-connected] {\n+  gap: 0;\n+}\n+\n+.group[data-connected] > button:not(:first-child):not(:last-child) {\n+  border-radius: 0;\n+}\n+\n+.group[data-connected] > button:first-child {\n+  border-radius: 8px 0 0 8px;\n+}\n+\n+.group[data-connected] > button:last-child {\n+  border-radius: 0 8px 8px 0;\n+}",
+              "annotations": [
+                {
+                  "id": "ann-10",
+                  "type": "edge_case",
+                  "lineMatch": "button:not(:first-child):not(:last-child)",
+                  "content": "These selectors target direct `button` children. If `Button` renders via the `as` prop as an `<a>` or `<div>`, the connected styling breaks."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "step-7",
+          "title": "Export barrel update",
+          "blurb": "Updates the package index to export the new `ButtonGroup` component alongside `Button`.",
+          "hunks": [
+            {
+              "id": "hunk-8",
+              "file": "src/components/Button/index.ts",
+              "startLine": 1,
+              "endLine": 5,
+              "diff": "@@ -1,1 +1,5 @@\n-export { Button } from './Button';\n+export { Button } from './Button';\n+export { ButtonGroup } from './ButtonGroup';\n+export type { ButtonProps, ButtonVariant, ButtonSize } from './types';",
+              "annotations": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
