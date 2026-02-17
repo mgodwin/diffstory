@@ -40,6 +40,15 @@ The skill is discovered automatically via the `SKILL.md` file. No further config
 
 If no level is specified, you'll be prompted to choose one.
 
+## How It Works
+
+For PR/MR reviews, the skill checks out the branch locally so it can explore the full codebase — not just the diff. It uses this to:
+
+1. **Discover side effects** — an Explore subagent searches for callers, consumers, and dependents of the changed code
+2. **Run a critique panel** — five parallel subagents (maintainer, security, SRE, spec compliance, consumer) each evaluate the approach independently, then results are synthesized into a verdict with perspectives
+
+This means the skill modifies your working tree (via `gh pr checkout` / `glab mr checkout`). For local git refs, no checkout is needed.
+
 ## Output
 
 The output is a single self-contained `.html` file in your current working directory named `diffstory-<session>-<source>.html`. It contains:
