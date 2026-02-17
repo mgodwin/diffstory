@@ -2,6 +2,16 @@
 
 Diffstory is a Claude Code skill that transforms code diffs into interactive narrative reviews. It takes a PR, MR, or git ref and generates a self-contained HTML file where changes are organized into logical stories with syntax-highlighted diffs and inline annotations.
 
+## Install
+
+Clone into your Claude Code skills directory:
+
+```bash
+git clone https://github.com/mgodwin/diffstory ~/.claude/skills/diffstory
+```
+
+The skill is discovered automatically via the `SKILL.md` file. No further configuration needed.
+
 ## Usage
 
 ```bash
